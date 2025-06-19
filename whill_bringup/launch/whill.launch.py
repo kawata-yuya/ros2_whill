@@ -32,7 +32,7 @@ def generate_launch_description():
             executable='whill',
             name='whill',
             # load params.yaml
-            parameters=[os.path.join(get_package_share_directory('whill_bringup'), 'params.yaml')],
+            parameters=[os.path.join(get_package_share_directory('whill_bringup'), 'config', 'params.yaml')],
             # remmaping
             remappings=[
                 ('cmd_vel_nav', 'whill/controller/cmd_vel')
