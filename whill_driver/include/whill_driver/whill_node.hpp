@@ -31,6 +31,7 @@
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 #include "whill_msgs/msg/model_cr2_state.hpp"
+#include "whill_msgs/srv/set_battery_saving.hpp"
 #include "whill_msgs/srv/set_battery_voltage_out.hpp"
 #include "whill_msgs/srv/set_power.hpp"
 #include "whill_msgs/srv/set_speed_profile.hpp"
@@ -97,6 +98,12 @@ private:
     const std::shared_ptr<whill_msgs::srv::SetBatteryVoltageOut::Request> request,
     const std::shared_ptr<whill_msgs::srv::SetBatteryVoltageOut::Response> response);
   rclcpp::Service<whill_msgs::srv::SetBatteryVoltageOut>::SharedPtr set_battery_voltage_out_srv_;
+
+  void OnSetBatterySavingSrv(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<whill_msgs::srv::SetBatterySaving::Request> request,
+    const std::shared_ptr<whill_msgs::srv::SetBatterySaving::Response> response);
+  rclcpp::Service<whill_msgs::srv::SetBatterySaving>::SharedPtr set_battery_saving_srv_;
 
   int ConvertToWhillJoy(float raw_joy);
   bool IsOutside(uint8_t target, uint8_t end1, uint8_t end2);
