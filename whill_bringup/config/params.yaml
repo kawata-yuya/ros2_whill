@@ -1,4 +1,4 @@
 whill:
   ros__parameters:
-    port_name: "/dev/ttyUSB0"
+    port_name: "/dev/serial/by-id/usb-FTDI_USB_HS_SERIAL_CONVERTER_FTRTKB2Y-if00-port0"
     publish_interval_ms: 400
