@@ -46,8 +46,8 @@ void WhillNode::Initialize()
   std::string port_name = get_parameter("port_name").as_string();
   whill_ = std::make_shared<model_cr2::Whill>(port_name);
 
-  // declare_parameter("publish_interval_ms", kDefaulPpublishIntervalMs);
-  // int publish_interval_ms = get_parameter("publish_interval_ms").as_int();
+  declare_parameter("publish_interval_ms", kDefaulPpublishIntervalMs);
+  int publish_interval_ms = get_parameter("publish_interval_ms").as_int();
   RCLCPP_INFO(this->get_logger(), "publish_interval_ms: %d", publish_interval_ms);
   auto publish_duration = std::chrono::duration<double, std::milli>(publish_interval_ms);
 
