@@ -48,7 +48,7 @@ void WhillNode::Initialize()
 
   declare_parameter("publish_interval_ms", kDefaulPpublishIntervalMs);
   int publish_interval_ms = get_parameter("publish_interval_ms").as_int();
-  RCLCPP_INFO(this->get_logger(), "publish_interval_ms: %d", publish_interval_ms);
+  RCLCPP_DEBUG(this->get_logger(), "publish_interval_ms: %d", publish_interval_ms);
   auto publish_duration = std::chrono::duration<double, std::milli>(publish_interval_ms);
 
   // publish
@@ -105,9 +105,9 @@ void WhillNode::OnStatesModelCr2Timer()
   auto current_time = this->now();
   auto msg = std::make_shared<whill_msgs::msg::ModelCr2State>();
   if (whill_->ReceiveDataset1(msg) < 1) {return;}
-  // RCLCPP_INFO(this->get_logger(), "WHILL state received msg: %d", msg->header.seq);
-  RCLCPP_INFO(this->get_logger(), "WHILL state received left_motor_angle: %f", msg->left_motor_angle);
-  RCLCPP_INFO(this->get_logger(), "WHILL state received right_motor_angle: %f", msg->right_motor_angle);
+  // RCLCPP_DEBUG(this->get_logger(), "WHILL state received msg: %d", msg->header.seq);
+  RCLCPP_DEBUG(this->get_logger(), "WHILL state received left_motor_angle: %f", msg->left_motor_angle);
+  RCLCPP_DEBUG(this->get_logger(), "WHILL state received right_motor_angle: %f", msg->right_motor_angle);
   // states_model_cr2_pub_->publish(*msg);
 
   // JointState
@@ -126,7 +126,7 @@ void WhillNode::OnStatesModelCr2Timer()
   static double joint_past[2] = {0.0f, 0.0f};
 
   // debug
-  RCLCPP_INFO(this->get_logger(), "publish_interval_ms: %d", publish_interval_ms);
+  RCLCPP_DEBUG(this->get_logger(), "publish_interval_ms: %d", publish_interval_ms);
   if (publish_interval_ms == -1) {
     joint_state.velocity[0] = rad_diff(joint_past[0], joint_state.position[0]) / double(publish_interval_ms) * 1000.0f; // Rad/sec
     joint_state.velocity[1] = rad_diff(joint_past[1], joint_state.position[1]) / double(publish_interval_ms) * 1000.0f; // Rad/sec
@@ -142,7 +142,7 @@ void WhillNode::OnStatesModelCr2Timer()
   joint_past[0] = joint_state.position[0];
   joint_past[1] = joint_state.position[1];
 
-  RCLCPP_INFO(this->get_logger(), "left: %f, right: %f", joint_state.velocity[0], joint_state.velocity[1]);
+  RCLCPP_DEBUG(this->get_logger(), "left: %f, right: %f", joint_state.velocity[0], joint_state.velocity[1]);
   states_model_cr2_pub_->publish(*msg);
   states_joint_pub_->publish(joint_state);
 
