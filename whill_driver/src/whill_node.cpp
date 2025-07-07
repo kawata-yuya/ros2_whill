@@ -8,10 +8,19 @@
  */
 #include "whill_driver/whill_node.hpp"
 
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/joy.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+// #include "tf2_ros/transform_broadcaster.h"
+#include "whill_driver/odom.h"
+#include "utils/rotation_tools.h"
 #include <chrono>
 
 using namespace std::chrono_literals;
 using namespace std::placeholders;
+
+Odometry odom;
 
 namespace whill_driver
 {
@@ -24,7 +33,20 @@ const std::string kDefaultPortName = "/dev/ttyUSB0";
 /**
  * The default publish interval [ms]
  */
-constexpr uint16_t kDefaulPpublishIntervalMs = 500;
+constexpr uint16_t kDefaulPpublishIntervalMs = 400;
+
+// declare_parameter("publish_interval_ms", kDefaulPpublishIntervalMs);
+// int publish_interval_ms = get_parameter("publish_interval_ms").as_int();
+int publish_interval_ms = kDefaulPpublishIntervalMs;
+
+/**
+ * Whillの最大速度の設定
+ * 理解してない人はいじらないでください
+ */
+const double cmd_vel_linear_max  =  0.2;
+const double cmd_vel_linear_min  = -0.2;
+const double cmd_vel_angular_max =  0.2;
+const double cmd_vel_angular_min = -0.2;
 
 void WhillNode::Initialize()
 {
@@ -35,6 +57,7 @@ void WhillNode::Initialize()
 
   declare_parameter("publish_interval_ms", kDefaulPpublishIntervalMs);
   int publish_interval_ms = get_parameter("publish_interval_ms").as_int();
+  RCLCPP_DEBUG(this->get_logger(), "publish_interval_ms: %d", publish_interval_ms);
   auto publish_duration = std::chrono::duration<double, std::milli>(publish_interval_ms);
 
   // publish
@@ -42,10 +65,15 @@ void WhillNode::Initialize()
     "states/model_cr2", 10);
   states_model_cr2_timer_ =
     this->create_wall_timer(publish_duration, std::bind(&WhillNode::OnStatesModelCr2Timer, this));
+  states_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/whill/joint_states", 10);
+  states_odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("whill/odom", 10);
+  tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+  // joystick_pub_ = this->create_publisher<sensor_msgs::msg::Joy>("/whill/joystick", 10);
 
   // subscription
-  controller_joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
-    "joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
+  // joy_sub was disabled for safety (kawata-yuya).
+  // controller_joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
+  //   "joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
   controller_cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
     "cmd_vel", 10, std::bind(&WhillNode::OnControllerCmdVel, this, _1));
 
@@ -84,9 +112,79 @@ WhillNode::~WhillNode()
 
 void WhillNode::OnStatesModelCr2Timer()
 {
+  auto current_time = this->now();
   auto msg = std::make_shared<whill_msgs::msg::ModelCr2State>();
   if (whill_->ReceiveDataset1(msg) < 1) {return;}
+  // RCLCPP_DEBUG(this->get_logger(), "WHILL state received msg: %d", msg->header.seq);
+  RCLCPP_DEBUG(this->get_logger(), "WHILL state received left_motor_angle: %f", msg->left_motor_angle);
+  RCLCPP_DEBUG(this->get_logger(), "WHILL state received right_motor_angle: %f", msg->right_motor_angle);
+  // states_model_cr2_pub_->publish(*msg);
+
+  // JointState
+  sensor_msgs::msg::JointState joint_state;
+  joint_state.header.stamp = current_time;
+  joint_state.name.resize(2);
+  joint_state.position.resize(2);
+  joint_state.velocity.resize(2);
+
+  joint_state.name[0] = "left_wheel_joint";
+  joint_state.position[0] = msg->left_motor_angle;
+
+  joint_state.name[1] = "right_wheel_joint";
+  joint_state.position[1] = msg->right_motor_angle;
+
+  static double joint_past[2] = {0.0f, 0.0f};
+
+  // debug
+  RCLCPP_DEBUG(this->get_logger(), "publish_interval_ms: %d", publish_interval_ms);
+  if (publish_interval_ms == -1) {
+    joint_state.velocity[0] = rad_diff(joint_past[0], joint_state.position[0]) / double(publish_interval_ms) * 1000.0f; // Rad/sec
+    joint_state.velocity[1] = rad_diff(joint_past[1], joint_state.position[1]) / double(publish_interval_ms) * 1000.0f; // Rad/sec
+  }
+  else if (publish_interval_ms == 0) {
+    joint_state.velocity[0] = 0.0f;
+    joint_state.velocity[1] = 0.0f;
+  }
+  else {
+    joint_state.velocity[0] = rad_diff(joint_past[0], joint_state.position[0]) / double(publish_interval_ms) * 1000.0f; // Rad/sec
+    joint_state.velocity[1] = rad_diff(joint_past[1], joint_state.position[1]) / double(publish_interval_ms) * 1000.0f; // Rad/sec
+  }
+  joint_past[0] = joint_state.position[0];
+  joint_past[1] = joint_state.position[1];
+
+  RCLCPP_DEBUG(this->get_logger(), "left: %f, right: %f", joint_state.velocity[0], joint_state.velocity[1]);
   states_model_cr2_pub_->publish(*msg);
+  states_joint_pub_->publish(joint_state);
+
+  // Odometry
+  if (publish_interval_ms == -1) {
+    odom.update(joint_state, publish_interval_ms / 1000.0f);
+  }
+  else if (publish_interval_ms >= 0) {
+    if (publish_interval_ms == 0) {
+      odom.zeroVelocity();
+    }
+    else {
+      odom.update(joint_state, publish_interval_ms / 1000.0f);
+    }
+  }
+  
+  nav_msgs::msg::Odometry odom_msg = odom.getROSOdometry();
+  odom_msg.header.stamp = current_time;
+  odom_msg.header.frame_id = "odom";
+  odom_msg.child_frame_id = "base_link";
+  states_odom_pub_->publish(odom_msg);
+
+  //TF
+  geometry_msgs::msg::TransformStamped odom_tf;
+  odom_tf.header.stamp = current_time;
+  odom_tf.header.frame_id = "odom";
+  odom_tf.child_frame_id = "base_link";
+  odom_tf.transform.translation.x = odom_msg.pose.pose.position.x;
+  odom_tf.transform.translation.y = odom_msg.pose.pose.position.y;
+  odom_tf.transform.translation.z = odom_msg.pose.pose.position.z;
+  odom_tf.transform.rotation = odom_msg.pose.pose.orientation;
+  tf_broadcaster_->sendTransform(odom_tf);
 }
 
 void WhillNode::OnControllerJoy(const sensor_msgs::msg::Joy::SharedPtr joy)
@@ -99,13 +197,33 @@ void WhillNode::OnControllerCmdVel(const geometry_msgs::msg::Twist::SharedPtr cm
 {
   // [m/s] to [km/h]: *3.6
   // SetVelocityCommand takes command unit (0.004 km/h): *250
-  int linear = cmd_vel->linear.x * 900;
+
+  //////////////////////////////////////////
+  //// limit cmd_vel for safety reasons. ///
+  //////////////////////////////////////////
+  double cmd_vel_linear  = cmd_vel->linear.x;
+  double cmd_vel_angular = cmd_vel->angular.z;
+
+  if(cmd_vel_linear > cmd_vel_linear_max){
+    cmd_vel_linear = cmd_vel_linear_max;
+  }
+  if(cmd_vel_linear < cmd_vel_linear_min){
+    cmd_vel_linear = cmd_vel_linear_min;
+  }
+  if(cmd_vel_angular > cmd_vel_angular_max){
+    cmd_vel_angular = cmd_vel_angular_max;
+  }
+  if(cmd_vel_angular < cmd_vel_angular_min){
+    cmd_vel_angular = cmd_vel_angular_min;
+  }
+
+  int linear = cmd_vel_linear * 900;
 
   // wheel_tread: 0.496
   // [rad/s] to [km/h]: *wheel_tread*3.6
   // SetVelocityCommand takes command unit (0.004 km/h): *250
   // The direction of rotation is reversed in ROS and SetVelocityCommand
-  int angular = cmd_vel->angular.z * -446.4;
+  int angular = cmd_vel_angular * -446.4;
   whill_->SendSetVelocityCommand(linear, angular);
   RCLCPP_INFO(
     this->get_logger(), "[CmdVel] linear:['%f'], angular:['%f']", cmd_vel->linear.x,
