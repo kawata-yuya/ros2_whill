@@ -26,6 +26,15 @@ const std::string kDefaultPortName = "/dev/ttyUSB0";
  */
 constexpr uint16_t kDefaulPpublishIntervalMs = 500;
 
+/**
+ * Whillの最大速度の設定
+ * 理解してない人はいじらないでください
+ */
+const double cmd_vel_linear_max  =  0.2;
+const double cmd_vel_linear_min  = -0.2;
+const double cmd_vel_angular_max =  0.2;
+const double cmd_vel_angular_min = -0.2;
+
 void WhillNode::Initialize()
 {
   // load parameters
@@ -44,8 +53,9 @@ void WhillNode::Initialize()
     this->create_wall_timer(publish_duration, std::bind(&WhillNode::OnStatesModelCr2Timer, this));
 
   // subscription
-  controller_joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
-    "/whill/controller/joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
+  // joy_sub was disabled for safety (kawata-yuya).
+  // controller_joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
+  //   "/whill/controller/joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
   controller_cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
     "/whill/controller/cmd_vel", 10, std::bind(&WhillNode::OnControllerCmdVel, this, _1));
 
@@ -99,13 +109,33 @@ void WhillNode::OnControllerCmdVel(const geometry_msgs::msg::Twist::SharedPtr cm
 {
   // [m/s] to [km/h]: *3.6
   // SetVelocityCommand takes command unit (0.004 km/h): *250
-  int linear = cmd_vel->linear.x * 900;
+
+  //////////////////////////////////////////
+  //// limit cmd_vel for safety reasons. ///
+  //////////////////////////////////////////
+  double cmd_vel_linear  = cmd_vel->linear.x;
+  double cmd_vel_angular = cmd_vel->angular.z;
+
+  if(cmd_vel_linear > cmd_vel_linear_max){
+    cmd_vel_linear = cmd_vel_linear_max;
+  }
+  if(cmd_vel_linear < cmd_vel_linear_min){
+    cmd_vel_linear = cmd_vel_linear_min;
+  }
+  if(cmd_vel_angular > cmd_vel_angular_max){
+    cmd_vel_angular = cmd_vel_angular_max;
+  }
+  if(cmd_vel_angular < cmd_vel_angular_min){
+    cmd_vel_angular = cmd_vel_angular_min;
+  }
+
+  int linear = cmd_vel_linear * 900;
 
   // wheel_tread: 0.496
   // [rad/s] to [km/h]: *wheel_tread*3.6
   // SetVelocityCommand takes command unit (0.004 km/h): *250
   // The direction of rotation is reversed in ROS and SetVelocityCommand
-  int angular = cmd_vel->angular.z * -446.4;
+  int angular = cmd_vel_angular * -446.4;
   whill_->SendSetVelocityCommand(linear, angular);
   RCLCPP_INFO(
     this->get_logger(), "[CmdVel] linear:['%f'], angular:['%f']", cmd_vel->linear.x,
