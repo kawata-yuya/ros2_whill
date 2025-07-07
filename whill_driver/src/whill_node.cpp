@@ -62,7 +62,7 @@ void WhillNode::Initialize()
 
   // publish
   states_model_cr2_pub_ = this->create_publisher<whill_msgs::msg::ModelCr2State>(
-    "/whill/states/model_cr2", 10);
+    "states/model_cr2", 10);
   states_model_cr2_timer_ =
     this->create_wall_timer(publish_duration, std::bind(&WhillNode::OnStatesModelCr2Timer, this));
   states_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/whill/joint_states", 10);
@@ -73,20 +73,20 @@ void WhillNode::Initialize()
   // subscription
   // joy_sub was disabled for safety (kawata-yuya).
   // controller_joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
-  //   "/whill/controller/joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
+  //   "joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
   controller_cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-    "/whill/controller/cmd_vel", 10, std::bind(&WhillNode::OnControllerCmdVel, this, _1));
+    "cmd_vel", 10, std::bind(&WhillNode::OnControllerCmdVel, this, _1));
 
   // service
   set_power_srv_ = this->create_service<whill_msgs::srv::SetPower>(
-    "/whill/set_power_srv", std::bind(&WhillNode::OnSetPowerSrv, this, _1, _2, _3));
+    "set_power_srv", std::bind(&WhillNode::OnSetPowerSrv, this, _1, _2, _3));
   set_speed_profile_srv_ = this->create_service<whill_msgs::srv::SetSpeedProfile>(
-    "/whill/set_speed_profile_srv", std::bind(&WhillNode::OnSetSpeedProfileSrv, this, _1, _2, _3));
+    "set_speed_profile_srv", std::bind(&WhillNode::OnSetSpeedProfileSrv, this, _1, _2, _3));
   set_battery_voltage_out_srv_ = this->create_service<whill_msgs::srv::SetBatteryVoltageOut>(
-    "/whill/set_battery_voltage_out_srv",
+    "set_battery_voltage_out_srv",
     std::bind(&WhillNode::OnSetBatteryVoltageOutSrv, this, _1, _2, _3));
   set_battery_saving_srv_ = this->create_service<whill_msgs::srv::SetBatterySaving>(
-    "/whill/set_battery_saving_srv", std::bind(&WhillNode::OnSetBatterySavingSrv, this, _1, _2, _3));
+    "set_battery_saving_srv", std::bind(&WhillNode::OnSetBatterySavingSrv, this, _1, _2, _3));
 
   // start sending WHILL State Dataset1
   whill_->SendStartSendingDataCommand(
