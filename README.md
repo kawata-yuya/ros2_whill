@@ -162,6 +162,12 @@ ros2 service call /whill/set_battery_saving_srv whill_msgs/SetBatterySaving '{l0
 | [whill_msgs](https://github.com/WHILL/ros2_whill_interfaces) | Interfaces package. This package exists in a different repository. |
 
 
+## Acknowledgment
+
+This project is based on [Amos2610's ros2_whill](https://github.com/Amos2610/ros2_whill),
+which is a fork of the original MIT-licensed project by WHILL, Inc.
+
+
 ## License
 
 Copyright (c) 2024 WHILL, Inc.
