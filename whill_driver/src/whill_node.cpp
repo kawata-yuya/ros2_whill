@@ -39,6 +39,15 @@ constexpr uint16_t kDefaulPpublishIntervalMs = 400;
 // int publish_interval_ms = get_parameter("publish_interval_ms").as_int();
 int publish_interval_ms = kDefaulPpublishIntervalMs;
 
+/**
+ * Whillの最大速度の設定
+ * 理解してない人はいじらないでください
+ */
+const double cmd_vel_linear_max  =  0.2;
+const double cmd_vel_linear_min  = -0.2;
+const double cmd_vel_angular_max =  0.2;
+const double cmd_vel_angular_min = -0.2;
+
 void WhillNode::Initialize()
 {
   // load parameters
@@ -53,7 +62,7 @@ void WhillNode::Initialize()
 
   // publish
   states_model_cr2_pub_ = this->create_publisher<whill_msgs::msg::ModelCr2State>(
-    "/whill/states/model_cr2", 10);
+    "states/model_cr2", 10);
   states_model_cr2_timer_ =
     this->create_wall_timer(publish_duration, std::bind(&WhillNode::OnStatesModelCr2Timer, this));
   states_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/whill/joint_states", 10);
@@ -62,21 +71,22 @@ void WhillNode::Initialize()
   // joystick_pub_ = this->create_publisher<sensor_msgs::msg::Joy>("/whill/joystick", 10);
 
   // subscription
-  controller_joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
-    "/whill/controller/joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
+  // joy_sub was disabled for safety (kawata-yuya).
+  // controller_joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
+  //   "joy", 10, std::bind(&WhillNode::OnControllerJoy, this, _1));
   controller_cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-    "/whill/controller/cmd_vel", 10, std::bind(&WhillNode::OnControllerCmdVel, this, _1));
+    "cmd_vel", 10, std::bind(&WhillNode::OnControllerCmdVel, this, _1));
 
   // service
   set_power_srv_ = this->create_service<whill_msgs::srv::SetPower>(
-    "/whill/set_power_srv", std::bind(&WhillNode::OnSetPowerSrv, this, _1, _2, _3));
+    "set_power_srv", std::bind(&WhillNode::OnSetPowerSrv, this, _1, _2, _3));
   set_speed_profile_srv_ = this->create_service<whill_msgs::srv::SetSpeedProfile>(
-    "/whill/set_speed_profile_srv", std::bind(&WhillNode::OnSetSpeedProfileSrv, this, _1, _2, _3));
+    "set_speed_profile_srv", std::bind(&WhillNode::OnSetSpeedProfileSrv, this, _1, _2, _3));
   set_battery_voltage_out_srv_ = this->create_service<whill_msgs::srv::SetBatteryVoltageOut>(
-    "/whill/set_battery_voltage_out_srv",
+    "set_battery_voltage_out_srv",
     std::bind(&WhillNode::OnSetBatteryVoltageOutSrv, this, _1, _2, _3));
   set_battery_saving_srv_ = this->create_service<whill_msgs::srv::SetBatterySaving>(
-    "/whill/set_battery_saving_srv", std::bind(&WhillNode::OnSetBatterySavingSrv, this, _1, _2, _3));
+    "set_battery_saving_srv", std::bind(&WhillNode::OnSetBatterySavingSrv, this, _1, _2, _3));
 
   // start sending WHILL State Dataset1
   whill_->SendStartSendingDataCommand(
@@ -187,13 +197,33 @@ void WhillNode::OnControllerCmdVel(const geometry_msgs::msg::Twist::SharedPtr cm
 {
   // [m/s] to [km/h]: *3.6
   // SetVelocityCommand takes command unit (0.004 km/h): *250
-  int linear = cmd_vel->linear.x * 900;
+
+  //////////////////////////////////////////
+  //// limit cmd_vel for safety reasons. ///
+  //////////////////////////////////////////
+  double cmd_vel_linear  = cmd_vel->linear.x;
+  double cmd_vel_angular = cmd_vel->angular.z;
+
+  if(cmd_vel_linear > cmd_vel_linear_max){
+    cmd_vel_linear = cmd_vel_linear_max;
+  }
+  if(cmd_vel_linear < cmd_vel_linear_min){
+    cmd_vel_linear = cmd_vel_linear_min;
+  }
+  if(cmd_vel_angular > cmd_vel_angular_max){
+    cmd_vel_angular = cmd_vel_angular_max;
+  }
+  if(cmd_vel_angular < cmd_vel_angular_min){
+    cmd_vel_angular = cmd_vel_angular_min;
+  }
+
+  int linear = cmd_vel_linear * 900;
 
   // wheel_tread: 0.496
   // [rad/s] to [km/h]: *wheel_tread*3.6
   // SetVelocityCommand takes command unit (0.004 km/h): *250
   // The direction of rotation is reversed in ROS and SetVelocityCommand
-  int angular = cmd_vel->angular.z * -446.4;
+  int angular = cmd_vel_angular * -446.4;
   whill_->SendSetVelocityCommand(linear, angular);
   RCLCPP_INFO(
     this->get_logger(), "[CmdVel] linear:['%f'], angular:['%f']", cmd_vel->linear.x,
