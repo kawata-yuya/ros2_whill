@@ -65,9 +65,9 @@ void WhillNode::Initialize()
   states_model_cr2_timer_ =
     this->create_wall_timer(publish_duration, std::bind(&WhillNode::OnStatesModelCr2Timer, this));
   states_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(
-    "/whill/joint_states", 10);
+    "joint_states", 10);
   states_odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(
-    "whill/odom", 10);
+    "odom", 10);
   tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
 
   // subscription
