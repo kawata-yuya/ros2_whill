@@ -12,7 +12,6 @@
 #include "sensor_msgs/msg/joy.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-// #include "tf2_ros/transform_broadcaster.h"
 #include "whill_driver/odom.h"
 #include "utils/rotation_tools.h"
 #include <chrono>
@@ -65,10 +64,11 @@ void WhillNode::Initialize()
     "states/model_cr2", 10);
   states_model_cr2_timer_ =
     this->create_wall_timer(publish_duration, std::bind(&WhillNode::OnStatesModelCr2Timer, this));
-  states_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/whill/joint_states", 10);
-  states_odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("whill/odom", 10);
+  states_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(
+    "joint_states", 10);
+  states_odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(
+    "odom", 10);
   tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
-  // joystick_pub_ = this->create_publisher<sensor_msgs::msg::Joy>("/whill/joystick", 10);
 
   // subscription
   // joy_sub was disabled for safety (kawata-yuya).
