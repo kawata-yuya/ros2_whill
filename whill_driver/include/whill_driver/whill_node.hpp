@@ -71,13 +71,10 @@ private:
   void OnControllerCmdVel(const geometry_msgs::msg::Twist::SharedPtr cmd_vel);
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr controller_cmd_vel_sub_;
 
-  // rclcpp::Publisher<sensor_msgs::msg::Joy>::SharedPtr joystick_pub_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr states_joint_pub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr states_odom_pub_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-  // void OnJoy(const sensor_msgs::msg::Joy::SharedPtr joy);
-  // void OnCmdVel(const geometry_msgs::msg::Twist::SharedPtr cmd_vel);
   void OnOdometry(const nav_msgs::msg::Odometry::SharedPtr odom);
   void OnWhillCallbackData1(const whill_msgs::msg::ModelCr2State::SharedPtr msg);
 
