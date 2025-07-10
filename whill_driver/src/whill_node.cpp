@@ -61,13 +61,13 @@ void WhillNode::Initialize()
 
   // publish
   states_model_cr2_pub_ = this->create_publisher<whill_msgs::msg::ModelCr2State>(
-    "states/model_cr2", 10);
+    "states/model_cr2", rclcpp::Qos(5).best_effort());
   states_model_cr2_timer_ =
     this->create_wall_timer(publish_duration, std::bind(&WhillNode::OnStatesModelCr2Timer, this));
   states_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(
-    "joint_states", 10);
+    "joint_states", rclcpp::Qos(5).best_effort());
   states_odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(
-    "odom", 10);
+    "odom", rclcpp::Qos(5).best_effort());
   tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
 
   // subscription
